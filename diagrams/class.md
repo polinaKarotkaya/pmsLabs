@@ -1,6 +1,6 @@
 # Диаграмма классов  
 
-![Диаграмма классов](https://github.com/polinaKarotkaya/pmsLabs/diagrams/img/classDiagram.png)
+![Диаграмма классов](https://github.com/polinaKarotkaya/pmsLabs/blob/main/diagrams/img/classDiagram.png)
 
 # Глоссарий
 
