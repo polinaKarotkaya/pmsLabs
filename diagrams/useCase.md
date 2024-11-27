@@ -1,6 +1,6 @@
 # Диаграмма вариантов использования
 
-![Диаграмма вариантов использования](https://github.com/polinaKarotkaya/pmsLabs/diagrams/img/useCase.png)
+![Диаграмма вариантов использования](https://github.com/polinaKarotkaya/pmsLabs/blob/main/diagrams/img/useCase.png)
 
 # Глоссарий
 
