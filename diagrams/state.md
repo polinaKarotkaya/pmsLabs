@@ -7,7 +7,7 @@
 
 ### 1. Авторизация<a name="1"></a>
 
-![Авторизация](https://github.com/polinaKarotkaya/pmsLabs/blob/main/diagrams/img/authState1.png)
+![Авторизация](https://github.com/polinaKarotkaya/pmsLabs/blob/main/diagrams/img/authState.png)
 
 ### 2. Просмотр товара<a name="2"></a>
 
