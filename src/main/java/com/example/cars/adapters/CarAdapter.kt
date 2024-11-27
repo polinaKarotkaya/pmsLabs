@@ -19,8 +19,7 @@ class CarAdapter(
 
     class CarViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val carInfo: TextView = itemView.findViewById(R.id.carInfo)
-        val cartItemStatus: TextView = itemView.findViewById(R.id.cartItemStatus)
-        val cartItemQuantity: TextView = itemView.findViewById(R.id.cartItemQuantity)
+        val carItemStatus: TextView = itemView.findViewById(R.id.carItemStatus)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CarViewHolder {
@@ -33,8 +32,7 @@ class CarAdapter(
         val carItem = carItems[position]
         val car = carDetails[carItem.carId]
         holder.carInfo.text = "${car?.make} ${car?.model}"
-        holder.cartItemStatus.text = "Статус: ${carItem.status}"
-        holder.cartItemQuantity.text = "Количество: ${carItem.quantity}"
+        holder.carItemStatus.text = "Статус: \${carItem.status}"
         holder.itemView.setOnLongClickListener {
             onCarItemLongPress(carItem)
             onCarItemSelected(carItem)

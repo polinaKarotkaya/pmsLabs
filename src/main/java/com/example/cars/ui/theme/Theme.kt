@@ -3,9 +3,7 @@ package com.example.carapp.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 private val DarkColorScheme = darkColorScheme(
     primary = Blue200,
@@ -52,16 +50,6 @@ fun CarAppTheme(
         DarkColorScheme
     } else {
         LightColorScheme
-    }
-
-    val systemUiController = rememberSystemUiController()
-    val useDarkIcons = !darkTheme
-
-    SideEffect {
-        systemUiController.setSystemBarsColor(
-            color = Color.Transparent,
-            darkIcons = useDarkIcons
-        )
     }
 
     MaterialTheme(

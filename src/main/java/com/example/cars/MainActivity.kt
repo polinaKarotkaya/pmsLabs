@@ -1,6 +1,7 @@
 package com.example.cars
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -24,6 +25,7 @@ import com.google.accompanist.pager.rememberPagerState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,6 +45,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 @ExperimentalPagerApi
 @ExperimentalFoundationApi
@@ -78,6 +81,7 @@ fun MyApp(
     var nickname by remember { mutableStateOf("") }
     var userRole by remember { mutableStateOf("") }
     var cart by remember { mutableStateOf<List<Car>>(emptyList()) }
+    var isAuthenticated by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -94,27 +98,51 @@ fun MyApp(
                 count = tabs.size
             ) { page ->
                 when (page) {
-                    0 -> CarSearchScreen(
-                        userRole = userRole,
-                        onNavigateToLogin = {
-                            coroutineScope.launch {
-                                pagerState.scrollToPage(3)
+                    0 -> if (isAuthenticated) {
+                        CarSearchScreen(
+                            userRole = userRole,
+                            onNavigateToLogin = {
+                                coroutineScope.launch {
+                                    pagerState.scrollToPage(3)
+                                }
+                            },
+                            nickname = nickname,
+                            validatePrice = validatePrice,
+                            onAddToCart = { car ->
+                                cart = cart + car
                             }
-                        },
-                        nickname = nickname,
-                        validatePrice = validatePrice,
-                        onAddToCart = { car ->
-                            cart = cart + car
-                        }
-                    )
-                    1 -> MyAdsScreen(nickname = nickname)
-                    2 -> CartScreen(
-                        cart = cart,
-                        onRemoveFromCart = { car ->
-                            cart = cart - car
-                        }
-                    )
-                    3 -> ProfileScreen(nickname = nickname, onNicknameChange = { newNickname -> nickname = newNickname })
+                        )
+                    } else {
+                        ProfileScreen(nickname = nickname, onNicknameChange = { newNickname ->
+                            nickname = newNickname
+                            isAuthenticated = newNickname.isNotEmpty()
+                        })
+                    }
+                    1 -> if (isAuthenticated) {
+                        MyAdsScreen(nickname = nickname)
+                    } else {
+                        ProfileScreen(nickname = nickname, onNicknameChange = { newNickname ->
+                            nickname = newNickname
+                            isAuthenticated = newNickname.isNotEmpty()
+                        })
+                    }
+                    2 -> if (isAuthenticated) {
+                        CartScreen(
+                            cart = cart,
+                            onRemoveFromCart = { car ->
+                                cart = cart - car
+                            }
+                        )
+                    } else {
+                        ProfileScreen(nickname = nickname, onNicknameChange = { newNickname ->
+                            nickname = newNickname
+                            isAuthenticated = newNickname.isNotEmpty()
+                        })
+                    }
+                    3 -> ProfileScreen(nickname = nickname, onNicknameChange = { newNickname ->
+                        nickname = newNickname
+                        isAuthenticated = newNickname.isNotEmpty()
+                    })
                 }
             }
         }
@@ -161,10 +189,26 @@ fun CarSearchScreen(
 ) {
     var showAddCarDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var allCars by remember { mutableStateOf<List<Car>>(emptyList()) }
     var availableCars by remember { mutableStateOf<List<Car>>(emptyList()) }
     var showConfirmationDialog by remember { mutableStateOf(false) }
     var selectedCar by remember { mutableStateOf<Car?>(null) }
+    var showCarDetailsDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
+
+    // Simulate a list of all available cars
+    allCars = listOf(
+        Car(make = "Toyota", model = "Camry", price = 25000.0, imageResId = R.drawable.car_image1, owner = "user1"),
+        Car(make = "Honda", model = "Civic", price = 20000.0, imageResId = R.drawable.car_image2, owner = "user1"),
+        Car(make = "Ford", model = "Mustang", price = 35000.0, imageResId = R.drawable.car_image3, owner = "user3"),
+        Car(make = "Chevrolet", model = "Malibu", price = 22000.0, imageResId = R.drawable.car_image4, owner = "user4")
+    )
+
+    // Filter the list of available cars based on the search query
+    availableCars = allCars.filter { car ->
+        car.make.contains(searchQuery, ignoreCase = true) || car.model.contains(searchQuery, ignoreCase = true)
+    }
 
     Column(
         modifier = Modifier
@@ -186,19 +230,6 @@ fun CarSearchScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Кнопка для поиска автомобилей
-        Button(onClick = {
-            // Simulate search
-            availableCars = listOf(
-                Car(make = "Toyota", model = "Camry", price = 25000.0, imageResId = R.drawable.car_image1),
-                Car(make = "Honda", model = "Civic", price = 20000.0, imageResId = R.drawable.car_image2)
-            )
-        }) {
-            Text("Поиск")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // Отображение автомобилей
         if (availableCars.isNotEmpty()) {
             Text(
@@ -214,12 +245,8 @@ fun CarSearchScreen(
                 ) {
                     Button(
                         onClick = {
-                            if (userRole.isEmpty()) {
-                                onNavigateToLogin()
-                            } else {
-                                selectedCar = car
-                                showConfirmationDialog = true
-                            }
+                            selectedCar = car
+                            showCarDetailsDialog = true
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -228,13 +255,26 @@ fun CarSearchScreen(
                             Text(text = "Цена: ${car.price} руб.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    IconButton(onClick = { onAddToCart(car) }) {
+                    IconButton(
+                        onClick = {
+                            if (car.owner != nickname) {
+                                onAddToCart(car)
+                            } else {
+                                errorMessage = "Вы не можете добавить свое объявление в корзину"
+                            }
+                        }
+                    ) {
                         Icon(Icons.Filled.ShoppingCart, contentDescription = "Добавить в корзину")
                     }
                 }
             }
         } else if (searchQuery.isNotEmpty()) {
             Text("Нет автомобилей по вашему запросу", style = MaterialTheme.typography.bodySmall)
+        }
+
+        if (errorMessage.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -257,8 +297,13 @@ fun CarSearchScreen(
         if (showAddCarDialog) {
             AddCarDialog(onDismiss = { showAddCarDialog = false }, validatePrice = validatePrice)
         }
+
+        if (showCarDetailsDialog && selectedCar != null) {
+            CarDetailsDialog(car = selectedCar!!, onDismiss = { showCarDetailsDialog = false })
+        }
     }
 }
+
 
 @Composable
 fun MyAdsScreen(nickname: String) {
@@ -267,8 +312,8 @@ fun MyAdsScreen(nickname: String) {
     var selectedCar by remember { mutableStateOf<Car?>(null) }
 
     val hardcodedCars = listOf(
-        Car(make = "Toyota", model = "Camry", price = 25000.0, imageResId = R.drawable.car_image1),
-        Car(make = "Honda", model = "Civic", price = 20000.0, imageResId = R.drawable.car_image2)
+        Car(make = "Toyota", model = "Camry", price = 25000.0, imageResId = R.drawable.car_image1, owner = "user1"),
+        Car(make = "Honda", model = "Civic", price = 20000.0, imageResId = R.drawable.car_image2, owner = "user2")
     )
 
     Column(
@@ -327,6 +372,7 @@ fun MyAdsScreen(nickname: String) {
         }
     }
 }
+
 
 @Composable
 fun CartScreen(
