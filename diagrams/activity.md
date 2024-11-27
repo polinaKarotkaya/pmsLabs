@@ -7,7 +7,7 @@
 
 ### 1. Авторизация<a name="1"></a>
 
-![Добавление новой транзакции](https://https://github.com/polinaKarotkaya/pmsLabs/diagrams/img/activityAuth.png)
+![Добавление новой транзакции](https://github.com/polinaKarotkaya/pmsLabs/diagrams/img/activityAuth.png)
 
 ### 2. Добавление в корзину<a name="2"></a>
 
