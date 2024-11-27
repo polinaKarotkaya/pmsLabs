@@ -3,6 +3,7 @@ package com.example.cars
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,10 +13,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import com.google.accompanist.pager.HorizontalPager
 import com.google.accompanist.pager.rememberPagerState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -32,10 +35,7 @@ import com.google.accompanist.pager.ExperimentalPagerApi
 import com.example.carapp.ui.theme.CarAppTheme
 import androidx.room.Room
 import com.example.cars.adapters.CarAdapter
-import com.example.cars.dao.UserDao
-import com.example.cars.dao.CarDao
-import com.example.cars.dao.CarItemDao
-import com.example.cars.database.AppDatabase
+
 import com.example.cars.entity.CarItem
 import com.example.cars.entity.Car
 import com.example.cars.entity.User
@@ -73,10 +73,11 @@ fun MyApp(
 ) {
     val pagerState = rememberPagerState(initialPage = 0)
 
-    val tabs = listOf("Поиск авто", "Мои объявления", "Профиль")
+    val tabs = listOf("Поиск авто", "Мои объявления", "Корзина", "Профиль")
     val coroutineScope = rememberCoroutineScope()
     var nickname by remember { mutableStateOf("") }
     var userRole by remember { mutableStateOf("") }
+    var cart by remember { mutableStateOf<List<Car>>(emptyList()) }
 
     Scaffold(
         bottomBar = {
@@ -97,14 +98,23 @@ fun MyApp(
                         userRole = userRole,
                         onNavigateToLogin = {
                             coroutineScope.launch {
-                                pagerState.scrollToPage(2)
+                                pagerState.scrollToPage(3)
                             }
                         },
                         nickname = nickname,
-                        validatePrice = validatePrice
+                        validatePrice = validatePrice,
+                        onAddToCart = { car ->
+                            cart = cart + car
+                        }
                     )
                     1 -> MyAdsScreen(nickname = nickname)
-                    2 -> ProfileScreen(nickname = nickname, onNicknameChange = { newNickname -> nickname = newNickname })
+                    2 -> CartScreen(
+                        cart = cart,
+                        onRemoveFromCart = { car ->
+                            cart = cart - car
+                        }
+                    )
+                    3 -> ProfileScreen(nickname = nickname, onNicknameChange = { newNickname -> nickname = newNickname })
                 }
             }
         }
@@ -127,10 +137,16 @@ fun BottomNavigationBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
             onClick = { onTabSelected(1) }
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Filled.Person, contentDescription = "Профиль") },
-            label = { Text("Профиль") },
+            icon = { Icon(Icons.Filled.ShoppingCart, contentDescription = "Корзина") },
+            label = { Text("Корзина") },
             selected = selectedTab == 2,
             onClick = { onTabSelected(2) }
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Filled.Person, contentDescription = "Профиль") },
+            label = { Text("Профиль") },
+            selected = selectedTab == 3,
+            onClick = { onTabSelected(3) }
         )
     }
 }
@@ -140,7 +156,8 @@ fun CarSearchScreen(
     userRole: String,
     onNavigateToLogin: () -> Unit,
     nickname: String,
-    validatePrice: (String) -> Boolean
+    validatePrice: (String) -> Boolean,
+    onAddToCart: (Car) -> Unit
 ) {
     var showAddCarDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -173,8 +190,8 @@ fun CarSearchScreen(
         Button(onClick = {
             // Simulate search
             availableCars = listOf(
-                Car(make = "Toyota", model = "Camry", price = 25000.0),
-                Car(make = "Honda", model = "Civic", price = 20000.0)
+                Car(make = "Toyota", model = "Camry", price = 25000.0, imageResId = R.drawable.car_image1),
+                Car(make = "Honda", model = "Civic", price = 20000.0, imageResId = R.drawable.car_image2)
             )
         }) {
             Text("Поиск")
@@ -211,6 +228,9 @@ fun CarSearchScreen(
                             Text(text = "Цена: ${car.price} руб.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                    IconButton(onClick = { onAddToCart(car) }) {
+                        Icon(Icons.Filled.ShoppingCart, contentDescription = "Добавить в корзину")
+                    }
                 }
             }
         } else if (searchQuery.isNotEmpty()) {
@@ -240,9 +260,17 @@ fun CarSearchScreen(
     }
 }
 
-
 @Composable
 fun MyAdsScreen(nickname: String) {
+    var showAddCarDialog by remember { mutableStateOf(false) }
+    var showCarDetailsDialog by remember { mutableStateOf(false) }
+    var selectedCar by remember { mutableStateOf<Car?>(null) }
+
+    val hardcodedCars = listOf(
+        Car(make = "Toyota", model = "Camry", price = 25000.0, imageResId = R.drawable.car_image1),
+        Car(make = "Honda", model = "Civic", price = 20000.0, imageResId = R.drawable.car_image2)
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -254,9 +282,113 @@ fun MyAdsScreen(nickname: String) {
         if (nickname.isEmpty()) {
             Text("Вы не вошли в аккаунт.", style = MaterialTheme.typography.bodySmall)
         } else {
-            Text("У вас пока нет объявлений.", style = MaterialTheme.typography.bodySmall)
+            if (hardcodedCars.isNotEmpty()) {
+                Text("Ваши объявления:", style = MaterialTheme.typography.titleMedium)
+                hardcodedCars.forEach { car ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                selectedCar = car
+                                showCarDetailsDialog = true
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(horizontalAlignment = Alignment.Start) {
+                                Text(text = "${car.make} ${car.model}", style = MaterialTheme.typography.bodyMedium)
+                                Text(text = "Цена: ${car.price} руб.", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            } else {
+                Text("У вас пока нет объявлений.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(onClick = { showAddCarDialog = true }) {
+            Text("Добавить объявление")
+        }
+
+        if (showCarDetailsDialog) {
+            selectedCar?.let { car ->
+                CarDetailsDialog(car = car, onDismiss = { showCarDetailsDialog = false })
+            }
+        }
+
+        if (showAddCarDialog) {
+            AddCarDialog(onDismiss = { showAddCarDialog = false }, validatePrice = { price -> price.toDoubleOrNull() != null })
         }
     }
+}
+
+@Composable
+fun CartScreen(
+    cart: List<Car>,
+    onRemoveFromCart: (Car) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text("Корзина", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (cart.isNotEmpty()) {
+            cart.forEach { car ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(text = "${car.make} ${car.model}", style = MaterialTheme.typography.bodyMedium)
+                        Text(text = "Цена: ${car.price} руб.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = { onRemoveFromCart(car) }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Удалить из корзины")
+                    }
+                }
+            }
+        } else {
+            Text("Ваша корзина пуста.", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+fun CarDetailsDialog(car: Car, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Детали автомобиля") },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Image(
+                    painter = painterResource(id = car.imageResId),
+                    contentDescription = null,
+                    modifier = Modifier.size(200.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Марка: ${car.make}")
+                Text("Модель: ${car.model}")
+                Text("Цена: ${car.price} руб.")
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("Закрыть")
+            }
+        }
+    )
 }
 
 @Composable
@@ -409,8 +541,6 @@ fun AddCarScreen(
     }
 }
 
-
-
 @Composable
 fun LoginScreen(onLoginSuccess: (String) -> Unit) {
     var nickname by remember { mutableStateOf("") }
@@ -541,4 +671,3 @@ fun ConfirmationDeleteDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 fun MyAdsScreenPreview() {
     MyAdsScreen(nickname = "exampleNickname")
 }
-
